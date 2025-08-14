@@ -1,10 +1,11 @@
-use std::io::Cursor;
+use std::io::{self, Cursor};
 
-use bytes::{Buf, BytesMut};
+use bytes::{BytesMut};
+use tklog::{info, error, debug};
 use tokio::io::{AsyncReadExt, BufWriter};
 use tokio::net::TcpStream;
 
-use crate::frame::Frame;
+use crate::frame::{self, Frame};
 
 pub struct Connection {
     // tokio buffer provide write buffer, can speed up writing
@@ -45,7 +46,28 @@ impl Connection {
         let mut buf = Cursor::new(&self.buffer[..]);
 
         match Frame::check(&mut buf) {
-            
+            Ok(_) => {
+                debug!("frame check ok");
+
+                // The check function has advanced the cursor to the end of the frame.
+                let len = buf.position() as usize;
+
+                buf.set_position(0);
+
+                let frame = Frame::parse(&mut buf)?;
+
+                debug!("frame is {:?}", frame);
+
+                /* discard the parsed frame from the buffer */
+                let _ = self.buffer.split_to(len);
+
+                Ok(Some(frame))
+            }
+            Err(frame::Error::Incomplete) => Ok(None),
+            Err(e) => {
+                error!("frame check error");
+                Err(e.into())
+            }
         }
     }
 }
