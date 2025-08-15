@@ -2,11 +2,12 @@ use std::io::{self, Cursor};
 
 use bytes::{BytesMut};
 use tklog::{info, error, debug};
-use tokio::io::{AsyncReadExt, BufWriter};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 
 use crate::frame::{self, Frame};
 
+#[derive(Debug)]
 pub struct Connection {
     // tokio buffer provide write buffer, can speed up writing
     stream: BufWriter<TcpStream>,
@@ -69,5 +70,69 @@ impl Connection {
                 Err(e.into())
             }
         }
+    }
+
+    pub async fn write_frame(&mut self, frame: &Frame) -> io::Result<()> {
+        debug!("write frame {:?}", frame);
+
+        match frame {
+            Frame::Array(val) => {
+                // Encode the frame type prefix, for array it's `*`
+                self.stream.write_u8(b'*').await?;
+
+                // Encode the length of the array
+                self.write_decimal(val.len() as u64).await?;
+
+                for entry in val {
+                    self.write_value(entry).await?;
+                }
+            }
+            _ => self.write_value(frame).await?,
+        }
+
+        // Flush the stream ensure the encoded frame is written to the socket
+        self.stream.flush().await
+    }
+
+    async fn write_decimal(&mut self, val: u64) -> io::Result<()> {
+        // Convert the decimal to a string
+        let s = val.to_string();
+
+        self.stream.write_all(s.as_bytes()).await?;
+        self.stream.write_all(b"\r\n").await?;
+
+        Ok(())
+    }
+
+    // Write a frame literal to the stream
+    async fn write_value(&mut self, frame: &Frame) -> io::Result<()> {
+        match frame {
+            Frame::Simple(val) => {
+                self.stream.write_u8(b'+').await?;
+                self.stream.write_all(val.as_bytes()).await?;
+                self.stream.write_all(b"\r\n").await?;
+            }
+            Frame::Error(val) => {
+                self.stream.write_u8(b'-').await?;
+                self.stream.write_all(val.as_bytes()).await?;
+                self.stream.write_all(b"\r\n").await?;
+            }
+            Frame::Integer(val) => {
+                self.stream.write_u8(b':').await?;
+                self.write_decimal(*val).await?;
+            }
+            Frame::Null => {
+                self.stream.write_all(b"$-1\r\n").await?;
+            }
+            Frame::Bulk(val) => {
+                self.stream.write_u8(b'$').await?;
+                self.write_decimal(val.len() as u64).await?;
+                self.stream.write_all(val).await?;
+                self.stream.write_all(b"\r\n").await?;
+            }
+            _ => unimplemented!(),
+        }
+
+        Ok(())
     }
 }
