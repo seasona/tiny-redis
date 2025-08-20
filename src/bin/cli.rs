@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use bytes::Bytes;
-use tklog::info;
+use tklog::{
+    info,LEVEL, LOG, Format,
+};
 
 use tiny_redis::{client::Client, DEFUALT_PORT};
 
@@ -23,8 +25,17 @@ enum Command {
     Set { key: String, value: String },
 }
 
+fn log_init() {
+    LOG.set_console(true)  
+       .set_level(LEVEL::Debug)  
+       .set_format(Format::LevelFlag | Format::Microseconds | Format::ShortFileName)  
+       .set_formatter("{level} {time} {file}: {message}\n");
+}
+
 #[tokio::main]
 async fn main() -> tiny_redis::Result<()> {
+    log_init();
+
     let cli = Cli::parse();
 
     let addr = format!("{}:{}", cli.host, cli.port);

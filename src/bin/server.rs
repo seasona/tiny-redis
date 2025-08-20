@@ -1,4 +1,6 @@
-use tklog::{trace, debug, error, fatal, info, warn};
+use tklog::{
+    LEVEL, LOG, Format,
+};
 use clap::Parser;
 use tokio::net::TcpListener;
 
@@ -10,8 +12,17 @@ struct Cli {
     port: Option<u16>,
 }
 
+fn log_init() {
+    LOG.set_console(true)  
+       .set_level(LEVEL::Debug)  
+       .set_format(Format::LevelFlag | Format::Microseconds | Format::ShortFileName)  
+       .set_formatter("{level} {time} {file}: {message}\n");
+}
+
 #[tokio::main]
 pub async fn main() {
+    log_init();
+
     let cli = Cli::parse();
     let port = cli.port.unwrap_or(DEFUALT_PORT);
 
