@@ -61,6 +61,26 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 impl Frame {
+    /// Return a empty array frame
+    pub(crate) fn array() -> Frame {
+        Frame::Array(vec![])
+    }
+
+    /// Push a `bulk` frame to array
+    pub(crate) fn push_bulk(&mut self, bytes: Bytes) {
+        match self {
+            Frame::Array(vec) => {
+                vec.push(Frame::Bulk(bytes));
+            }
+            _ => panic!("not a array frame"),
+        }
+    }
+
+    /// Converts the frame to an "unexpected frame" error
+    pub(crate) fn to_error(&self) -> crate::Error {
+        format!("unexpected frame: {}", self).into()
+    }
+
     /// Check if an entire message can be decoded from `src`
     pub(crate) fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {

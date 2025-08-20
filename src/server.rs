@@ -1,7 +1,7 @@
 use tokio::net::TcpListener;
 use tklog::{info, debug, error};
 
-use crate::connection::Connection;
+use crate::{cmd::Command, connection::Connection};
 
 /// Server listener
 #[derive(Debug)]
@@ -48,6 +48,12 @@ impl Handler {
             };
 
             debug!("received frame: {:?}", frame);
+
+            let command = Command::from_frame(frame)?;
+
+            debug!("command: {}", command.get_name());
+
+            command.apply(&mut self.connection).await?;
         }
     }
 }

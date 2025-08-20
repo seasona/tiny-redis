@@ -1,4 +1,6 @@
 use clap::{Parser, Subcommand};
+use bytes::Bytes;
+use tklog::info;
 
 use tiny_redis::{client::Client, DEFUALT_PORT};
 
@@ -16,7 +18,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    Ping,
+    Ping { msg: Option<Bytes> },
     Get { key: String },
     Set { key: String, value: String },
 }
@@ -30,9 +32,11 @@ async fn main() -> tiny_redis::Result<()> {
     let mut client = Client::connect(addr).await.unwrap();
 
     match cli.command {
-        Command::Ping => {
-            client.ping().await.unwrap();
-        }
+        Command::Ping { msg }=> {
+            let value = client.ping(msg).await?;
+            let string = str::from_utf8(&value)?;
+            info!("return: {}", string);
+        },
         _ => unimplemented!(),
     }
 

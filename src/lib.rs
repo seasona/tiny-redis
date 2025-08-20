@@ -7,6 +7,10 @@ pub mod frame;
 
 pub mod client;
 
+mod parse;
+
+mod cmd;
+
 pub const DEFUALT_PORT: u16 = 6379;
 
 /* Self-define error type, use it to dynamic cast different error type */
