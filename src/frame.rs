@@ -99,7 +99,9 @@ impl Frame {
             b'$' => {   // Bulk
                 // TODO: handle negative length?
                 let len = get_decimal(src)?;
-                skip(src, len)
+
+                // skip that number of bytes + 2 (\r\n).
+                skip(src, len + 2)
             }
             b'*' => {   // Array
                 let len = get_decimal(src)?;

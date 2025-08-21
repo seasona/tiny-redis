@@ -57,7 +57,7 @@ impl Connection {
 
                 let frame = Frame::parse(&mut buf)?;
 
-                debug!("frame is {:?}", frame);
+                debug!("frame is {:?}, len: {}", frame, len);
 
                 /* discard the parsed frame from the buffer */
                 let _ = self.buffer.split_to(len);
