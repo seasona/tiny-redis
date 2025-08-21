@@ -1,10 +1,8 @@
-use clap::{Parser, Subcommand};
 use bytes::Bytes;
-use tklog::{
-    info,LEVEL, LOG, Format,
-};
+use clap::{Parser, Subcommand};
+use log::info;
 
-use tiny_redis::{client::Client, DEFUALT_PORT};
+use tiny_redis::{DEFUALT_PORT, client::Client};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -25,16 +23,30 @@ enum Command {
     Set { key: String, value: String },
 }
 
-fn log_init() {
-    LOG.set_console(true)  
-       .set_level(LEVEL::Debug)  
-       .set_format(Format::LevelFlag | Format::Microseconds | Format::ShortFileName)  
-       .set_formatter("{level} {time} {file}: {message}\n");
+fn init_env_logger() {
+    use chrono::Local;
+    use std::io::Write;
+
+    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "trace");
+    env_logger::Builder::from_env(env)
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} {} [{}] {}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.module_path().unwrap_or("<unnamed>"),
+                &record.args()
+            )
+        })
+        .init();
+
+    info!("env_logger initialized.");
 }
 
 #[tokio::main]
 async fn main() -> tiny_redis::Result<()> {
-    log_init();
+    init_env_logger();
 
     let cli = Cli::parse();
 
@@ -43,11 +55,11 @@ async fn main() -> tiny_redis::Result<()> {
     let mut client = Client::connect(addr).await.unwrap();
 
     match cli.command {
-        Command::Ping { msg }=> {
+        Command::Ping { msg } => {
             let value = client.ping(msg).await?;
             let string = str::from_utf8(&value)?;
             info!("return: {}", string);
-        },
+        }
         _ => unimplemented!(),
     }
 

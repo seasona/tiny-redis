@@ -1,7 +1,7 @@
 use std::io::{self, Cursor};
+use log::{info, debug, error};
 
 use bytes::{BytesMut};
-use tklog::{info, error, debug};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 

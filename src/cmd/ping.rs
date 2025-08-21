@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use tklog::debug;
+use log::{info, debug};
 
 use crate::frame::Frame;
 use crate::connection::Connection;

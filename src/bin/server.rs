@@ -1,8 +1,6 @@
-use tklog::{
-    LEVEL, LOG, Format,
-};
 use clap::Parser;
 use tokio::net::TcpListener;
+use log::info;
 
 use tiny_redis::{server, DEFUALT_PORT};
 
@@ -12,16 +10,31 @@ struct Cli {
     port: Option<u16>,
 }
 
-fn log_init() {
-    LOG.set_console(true)  
-       .set_level(LEVEL::Debug)  
-       .set_format(Format::LevelFlag | Format::Microseconds | Format::ShortFileName)  
-       .set_formatter("{level} {time} {file}: {message}\n");
+// Use beijing time (UTC+8)
+fn init_env_logger() {
+    use chrono::Local;
+    use std::io::Write;
+
+    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "trace");
+    env_logger::Builder::from_env(env)
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} {} [{}] {}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.module_path().unwrap_or("<unnamed>"),
+                &record.args()
+            )
+        })
+        .init();
+
+    info!("env_logger initialized.");
 }
 
 #[tokio::main]
 pub async fn main() {
-    log_init();
+    init_env_logger();
 
     let cli = Cli::parse();
     let port = cli.port.unwrap_or(DEFUALT_PORT);
