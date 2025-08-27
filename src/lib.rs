@@ -1,15 +1,23 @@
-
 pub mod connection;
+use connection::Connection;
 
 pub mod server;
 
 pub mod frame;
+use frame::Frame;
 
 pub mod client;
 
 mod parse;
+use parse::Parse;
+use parse::ParseError;
 
 mod cmd;
+use cmd::Command;
+
+mod db;
+use db::Db;
+use db::DbDropGuard;
 
 pub const DEFUALT_PORT: u16 = 6379;
 

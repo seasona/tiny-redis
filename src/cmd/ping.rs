@@ -1,8 +1,8 @@
 use bytes::Bytes;
-use log::{info, debug};
+use log::{debug, info};
 
-use crate::frame::Frame;
 use crate::connection::Connection;
+use crate::frame::Frame;
 use crate::parse::{Parse, ParseError};
 
 #[derive(Debug, Default)]

@@ -1,8 +1,8 @@
+use std::fmt;
 use std::io::Cursor;
 use std::io::prelude::*;
-use std::fmt;
-use std::string::FromUtf8Error;
 use std::num::TryFromIntError;
+use std::string::FromUtf8Error;
 
 use bytes::Buf;
 use bytes::Bytes;
@@ -84,26 +84,34 @@ impl Frame {
     /// Check if an entire message can be decoded from `src`
     pub(crate) fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {
-            b'+' => {   // String
+            b'+' => {
+                // String
                 get_line(src)?;
                 Ok(())
             }
-            b'-' => {   // Simple
+            b'-' => {
+                // Simple
                 get_line(src)?;
                 Ok(())
             }
-            b':' => {   // Integer
+            b':' => {
+                // Integer
                 get_line(src)?;
                 Ok(())
             }
-            b'$' => {   // Bulk
-                // TODO: handle negative length?
-                let len = get_decimal(src)?;
+            b'$' => {
+                // Bulk
+                if b'-' == peek_u8(src)? {
+                    skip(src, 4)
+                } else {
+                    let len = get_decimal(src)?;
 
-                // skip that number of bytes + 2 (\r\n).
-                skip(src, len + 2)
+                    // skip that number of bytes + 2 (\r\n).
+                    skip(src, len + 2)
+                }
             }
-            b'*' => {   // Array
+            b'*' => {
+                // Array
                 let len = get_decimal(src)?;
                 for _ in 0..len {
                     Frame::check(src)?;
@@ -136,17 +144,26 @@ impl Frame {
                 Ok(Frame::Integer(len))
             }
             b'$' => {
-                // TODO: handle negative len
-                let len = get_decimal(src)?.try_into()?;
-                let n = (len + 2) as u64;
+                if peek_u8(src)? == b'-' {
+                    let line = get_line(src)?;
 
-                /* copy data without \r\n */
-                let data = Bytes::copy_from_slice(&src.chunk()[..len]);
+                    if line != b"-1" {
+                        return Err("protocol error; invalid frame format".into());
+                    }
 
-                /* skip the number of bytes + 2 (\r\n) */
-                skip(src, n)?;
+                    Ok(Frame::Null)
+                } else {
+                    let len = get_decimal(src)?.try_into()?;
+                    let n = (len + 2) as u64;
 
-                Ok(Frame::Bulk(data))
+                    /* copy data without \r\n */
+                    let data = Bytes::copy_from_slice(&src.chunk()[..len]);
+
+                    /* skip the number of bytes + 2 (\r\n) */
+                    skip(src, n)?;
+
+                    Ok(Frame::Bulk(data))
+                }
             }
             b'*' => {
                 let len = get_decimal(src)?.try_into()?;
@@ -159,7 +176,7 @@ impl Frame {
 
                 Ok(Frame::Array(out))
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -199,7 +216,19 @@ fn skip(src: &mut Cursor<&[u8]>, n: u64) -> Result<(), Error> {
     Ok(())
 }
 
+fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
+    if src.remaining() == 0 {
+        return Err(Error::Incomplete);
+    }
+
+    Ok(src.chunk()[0])
+}
+
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
+    if src.remaining() == 0 {
+        return Err(Error::Incomplete);
+    }
+
     let mut buf = [0u8; 1];
     match src.read_exact(&mut buf) {
         Ok(_) => Ok(buf[0]),

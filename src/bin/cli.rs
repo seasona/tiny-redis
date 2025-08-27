@@ -20,7 +20,7 @@ struct Cli {
 enum Command {
     Ping { msg: Option<Bytes> },
     Get { key: String },
-    Set { key: String, value: String },
+    Set { key: String, value: Bytes },
 }
 
 fn init_env_logger() {
@@ -59,6 +59,21 @@ async fn main() -> tiny_redis::Result<()> {
             let value = client.ping(msg).await?;
             let string = str::from_utf8(&value)?;
             info!("return: {}", string);
+        }
+        Command::Set { key, value } => {
+            client.set(&key, value).await?;
+            info!("OK");
+        }
+        Command::Get { key } => {
+            if let Some(value) = client.get(&key).await? {
+                if let Ok(string) = str::from_utf8(&value) {
+                    info!("\"{}\"", string);
+                } else {
+                    info!("{:?}", value);
+                }
+            } else {
+                info!("(nil)")
+            }
         }
         _ => unimplemented!(),
     }

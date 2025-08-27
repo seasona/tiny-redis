@@ -1,10 +1,10 @@
 use bytes::Bytes;
-use tokio::net::{TcpStream, ToSocketAddrs};
 use std::io::{Error, ErrorKind};
+use tokio::net::{TcpStream, ToSocketAddrs};
 
+use crate::cmd::{Get, Ping, Set};
 use crate::connection::{self, Connection};
 use crate::frame::Frame;
-use crate::cmd::Ping;
 
 pub struct Client {
     connection: Connection,
@@ -40,6 +40,36 @@ impl Client {
         match self.read_response().await? {
             Frame::Simple(s) => Ok(s.into()),
             Frame::Bulk(value) => Ok(value),
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    pub async fn set(&mut self, key: &str, value: Bytes) -> crate::Result<()> {
+        let frame = Set::new(key, value).into_frame();
+
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(response) => {
+                if response == "OK" {
+                    Ok(())
+                } else {
+                    Err(format!("error response {}", response).into())
+                }
+            }
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    pub async fn get(&mut self, key: &str) -> crate::Result<Option<Bytes>> {
+        let frame = Get::new(key).into_frame();
+
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(value) => Ok(Some(value.into())),
+            Frame::Bulk(response) => Ok(Some(response)),
+            Frame::Null => Ok(None),
             frame => Err(frame.to_error()),
         }
     }

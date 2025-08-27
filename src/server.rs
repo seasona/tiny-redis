@@ -1,18 +1,20 @@
+use log::{debug, error, info};
 use tokio::net::TcpListener;
-use log::{info, debug, error};
 
-use crate::{cmd::Command, connection::Connection};
+use crate::{Command, Connection, Db, DbDropGuard};
 
 /// Server listener
 #[derive(Debug)]
 struct Listener {
     listener: TcpListener,
+    db_holder: DbDropGuard,
 }
 
 /// Per-connection handler
 #[derive(Debug)]
 struct Handler {
     connection: Connection,
+    db: Db,
 }
 
 impl Listener {
@@ -24,6 +26,8 @@ impl Listener {
 
             let mut handler = Handler {
                 connection: Connection::new(socket.0),
+                // get a clone of shared db
+                db: self.db_holder.db(),
             };
 
             tokio::spawn(async move {
@@ -53,7 +57,7 @@ impl Handler {
 
             debug!("command: {}", command.get_name());
 
-            command.apply(&mut self.connection).await?;
+            command.apply(&mut self.db, &mut self.connection).await?;
         }
     }
 }
@@ -62,6 +66,7 @@ impl Handler {
 pub async fn run(listener: TcpListener) {
     let mut server = Listener {
         listener,
+        db_holder: DbDropGuard::new(),
     };
 
     let _ = server.run().await;

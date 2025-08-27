@@ -1,8 +1,8 @@
 use clap::Parser;
-use tokio::net::TcpListener;
 use log::info;
+use tokio::net::TcpListener;
 
-use tiny_redis::{server, DEFUALT_PORT};
+use tiny_redis::{DEFUALT_PORT, server};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -39,7 +39,9 @@ pub async fn main() {
     let cli = Cli::parse();
     let port = cli.port.unwrap_or(DEFUALT_PORT);
 
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await.unwrap();
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
+        .await
+        .unwrap();
 
     server::run(listener).await;
 }

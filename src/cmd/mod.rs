@@ -1,12 +1,19 @@
-
 mod ping;
 pub use ping::Ping;
 
-use crate::{frame::Frame, parse::Parse, connection::Connection};
+mod set;
+pub use set::Set;
+
+mod get;
+pub use get::Get;
+
+use crate::{Connection, Db, Frame, Parse};
 
 #[derive(Debug)]
 pub enum Command {
     Ping(Ping),
+    Set(Set),
+    Get(Get),
     Unknown(String),
 }
 
@@ -18,6 +25,8 @@ impl Command {
 
         let command = match command_name.as_str() {
             "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
+            "set" => Command::Set(Set::parse_frames(&mut parse)?),
+            "get" => Command::Get(Get::parse_frames(&mut parse)?),
             _ => unimplemented!(),
         };
 
@@ -26,10 +35,11 @@ impl Command {
         Ok(command)
     }
 
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
-
+    pub(crate) async fn apply(self, db: &mut Db, dst: &mut Connection) -> crate::Result<()> {
         match self {
             Command::Ping(cmd) => cmd.apply(dst).await,
+            Command::Set(cmd) => cmd.apply(&db, dst).await,
+            Command::Get(cmd) => cmd.apply(&db, dst).await,
             _ => unimplemented!(),
         }
     }
@@ -38,6 +48,8 @@ impl Command {
     pub(crate) fn get_name(&self) -> &str {
         match self {
             Command::Ping(_) => "ping",
+            Command::Set(_) => "set",
+            Command::Get(_) => "get",
             _ => unimplemented!(),
         }
     }
